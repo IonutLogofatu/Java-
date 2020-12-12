@@ -22,7 +22,12 @@ Inductive AExp :=
   | asub: AExp -> AExp -> AExp
   | amul: AExp -> AExp -> AExp 
   | adiv: AExp -> AExp -> AExp 
-  | amod: AExp -> AExp -> AExp.
+  | amod: AExp -> AExp -> AExp
+  | ainc: AExp -> AExp
+  | adec: AExp -> AExp
+  | amin: AExp -> AExp -> AExp
+  | amax: AExp -> AExp -> AExp
+  | apow: AExp -> AExp.
 
 Inductive BExp :=
   | berror
@@ -55,6 +60,11 @@ Notation "A -' B" := (asub A B)(at level 50, left associativity).
 Notation "A *' B" := (amul A B)(at level 48, left associativity).
 Notation "A /' B" := (adiv A B)(at level 48, left associativity).
 Notation "A %' B" := (amod A B)(at level 45, left associativity).
+Notation "++ C" := (ainc C)(at level 50, left associativity).
+Notation "-- C" := (adec C)(at level 50, left associativity).
+Notation "min'( A , C )" := (amin A C)(at level 47, left associativity).
+Notation "max'( A , C )" := (amax A C)(at level 47, left associativity).
+Notation "pow'( A )" := (apow A)(at level 47, left associativity).
 
 
 Notation "A <' B" := (blt A B) (at level 70).
