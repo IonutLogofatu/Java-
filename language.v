@@ -63,8 +63,11 @@ Inductive BExp :=
 
 Inductive Stmt :=
   | nat_decl: string -> AExp -> Stmt 
-  | bool_decl: string -> BExp -> Stmt 
+  | locNatDecl : string -> Stmt
+  | bool_decl: string -> BExp -> Stmt
+  | locBoolDecl : string -> Stmt 
   | string_decl: string -> StringOP -> Stmt
+  | locStringDecl : string -> Stmt
   | nat_assign : string -> AExp -> Stmt 
   | bool_assign : string -> BExp -> Stmt 
   | string_assign : string -> StringOP -> Stmt
@@ -121,7 +124,7 @@ Notation "-- C" := (adec C)(at level 50, left associativity).
 Notation "min'( A , C )" := (amin A C)(at level 47, left associativity).
 Notation "max'( A , C )" := (amax A C)(at level 47, left associativity).
 Notation "pow'( A )" := (apow A)(at level 47, left associativity).
-Notation "Math.sqrt( A )" :=(asqrt A)(at level 47, left associativity).
+Notation "Math.sqrt( A )" :=(asqrt A)(at level 47, left associativity).  
 
 
 Notation "A <' B" := (blt A B) (at level 70).
@@ -138,16 +141,19 @@ Notation "A ==' B" := (beq A B)(at level 72, left associativity).
 Notation "X :n= A" := (nat_assign X A)(at level 90).
 Notation "X :b= A" := (bool_assign X A)(at level 90).
 Notation "X :s= A" := (string_assign X A)(at level 90).
+Notation "'LNat' X" :=(locNatDecl X)(at level 90).
 Notation "'GNat' X" := (natGlb X)(at level 90).
 Notation "'Nat' X ::= A" := (nat_decl X A)(at level 90).
+Notation "'LBoolean' X" :=(locBoolDecl X)(at level 90).
 Notation "'Gboolean' X" := (boolGlb X)(at level 90).
 Notation "'boolean' X ::= A" := (bool_decl X A)(at level 90).
+Notation "'LString' X" :=(locStringDecl X)(at level 90).
 Notation "'GSTring' X" :=(stringGlb X)(at level 90).
 Notation "'STring' X ::= A" := (string_decl X A)(at level 90).
 Notation "S1 ;; S2" := (sequence S1 S2) (at level 93, right associativity).
 Notation "S1 .' S2" := (sequenceGlb S1 S2)(at level 93, right associativity).
 
-Notation "'fors' ( A ~ B ~ C ) { S }" := (A ;; whileStmt B ( S ;; C )) (at level 97).
+Notation "'fors' ( A ;' B ;' C ) { S }" := (A ;; whileStmt B ( S ;; C )) (at level 97).
 Notation "'If'( B ) 'then' { A }'End'" :=(ifthen B A)(at level 97).
 Notation "'If'( B ) 'then' { S1 }'Else'{ S2 }'End'" := (ifthenelse B S1 S2)(at level 97).
 Notation "'while(' B '){' A '}'" := (whileStmt B A)(at level 95).
@@ -162,11 +168,15 @@ Check
   public_void "test" (){
      System.out.println( "Asta este un test" )
   }.'
-  Gboolean "boolGlobal".'
+  GNat "x".'
   GSTring "TestGlobal".'
   public_void main(){
      "TestGlobal" :s= "bine ai venit";;
-     System.out.println( "TestGlobal" )
+     "x" :n= 1 +' 10;;
+     LNat "n";;
+     "n" :n= 10;;
+     System.out.println( "TestGlobal" );;
+     System.out.println( "x" )
   }.
 
 Reserved Notation "A =[ S ]=> N" (at level 60).
