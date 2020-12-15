@@ -22,6 +22,7 @@ Coercion num: nat >-> ErrorNat.
 Coercion boolean: bool >-> ErrorBool.
 
 Inductive StringOP:=
+  | str_err : errString -> StringOP
   | strConcat : errString -> errString -> StringOP
   | strVar : string -> StringOP.
 
@@ -71,7 +72,8 @@ Inductive Stmt :=
   | whileStmt : BExp -> Stmt -> Stmt
   | ifthenelse : BExp -> Stmt -> Stmt -> Stmt
   | ifthen : BExp -> Stmt -> Stmt
-  | SystemOut : StringOP -> Stmt.
+  | SystemOut : StringOP -> Stmt
+  | break : Stmt.
 
 Inductive Result :=
   | err_undecl : Result
@@ -86,7 +88,11 @@ Inductive Result :=
 
 Inductive Glb :=
     | mainDecl : Stmt -> Glb
-    | functionDecl : string -> list string -> Stmt -> Glb.
+    | functionDecl : string -> list string -> Stmt -> Glb
+    | sequenceGlb : Glb -> Glb -> Glb
+    | natGlb : string -> Glb
+    | boolGlb : string -> Glb
+    | stringGlb : string -> Glb.
 
 
 
@@ -132,11 +138,14 @@ Notation "A ==' B" := (beq A B)(at level 72, left associativity).
 Notation "X :n= A" := (nat_assign X A)(at level 90).
 Notation "X :b= A" := (bool_assign X A)(at level 90).
 Notation "X :s= A" := (string_assign X A)(at level 90).
-Notation "Nat' X ::= A" := (nat_decl X A)(at level 90).
-Notation "boolean' X ::= A" := (bool_decl X A)(at level 90).
-Notation "string' X ::= A" := (string_decl X A)(at level 90).
+Notation "'GNat' X" := (natGlb X)(at level 90).
+Notation "'Nat' X ::= A" := (nat_decl X A)(at level 90).
+Notation "'Gboolean' X" := (boolGlb X)(at level 90).
+Notation "'boolean' X ::= A" := (bool_decl X A)(at level 90).
+Notation "'GSTring' X" :=(stringGlb X)(at level 90).
+Notation "'STring' X ::= A" := (string_decl X A)(at level 90).
 Notation "S1 ;; S2" := (sequence S1 S2) (at level 93, right associativity).
-
+Notation "S1 .' S2" := (sequenceGlb S1 S2)(at level 93, right associativity).
 
 Notation "'fors' ( A ~ B ~ C ) { S }" := (A ;; whileStmt B ( S ;; C )) (at level 97).
 Notation "'If'( B ) 'then' { A }'End'" :=(ifthen B A)(at level 97).
@@ -145,17 +154,19 @@ Notation "'while(' B '){' A '}'" := (whileStmt B A)(at level 95).
 Notation "System.out.println( S )" := (SystemOut S)(at level 98).
 
 
-Notation "'public_void main()'{ S }" := (mainDecl S)(at level 98).
+Notation "'public_void' 'main()' { S }" := (mainDecl S)(at level 98).
 Notation "'public_void' N (){ S }" := (functionDecl N nil S)(at level 98).
 Notation "'public_void' N ( A ){ S }" := (functionDecl N A S)(at level 98).
 
 Check
   public_void "test" (){
      System.out.println( "Asta este un test" )
-  }
+  }.'
+  Gboolean "boolGlobal".'
+  GSTring "TestGlobal".'
   public_void main(){
-     "testul" :s= "bine ai venit";;
-     System.out.println("str")
+     "TestGlobal" :s= "bine ai venit";;
+     System.out.println( "TestGlobal" )
   }.
 
 Reserved Notation "A =[ S ]=> N" (at level 60).
