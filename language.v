@@ -1,9 +1,19 @@
-
 Require Import Strings.String.
-Local Open Scope string_scope.
-Local Open Scope list_scope.
+Delimit Scope string_scope with string.
+Require Import PeanoNat Le Gt Minus Bool Lt.
 Scheme Equality for string.
+Local Open Scope string_scope.
+Require Import Coq.Strings.Byte.
+Local Open Scope list_scope.
+Require Import Arith.
+Require Import Ascii.
+Require Import Bool.
+Require Import Nat.
+Require Setoid.
+Set Implicit Arguments.
 Require Import Coq.Lists.List.
+Open Scope list_scope.
+
 
 Inductive ErrorNat :=
   | error_nat : ErrorNat
@@ -17,13 +27,19 @@ Inductive errString :=
   | error_String : errString
   | newString : string -> errString.
 
+Inductive funParam :=
+  | param : string -> funParam.
+
 
 Coercion num: nat >-> ErrorNat.
 Coercion boolean: bool >-> ErrorBool.
+Coercion newString: string >-> errString.
+Coercion param : string >-> funParam.
 
 Inductive StringOP:=
   | str_err : errString -> StringOP
   | strConcat : errString -> errString -> StringOP
+  | strCmp : errString -> errString -> StringOP
   | strVar : string -> StringOP.
 
 Inductive AExp :=
@@ -40,7 +56,7 @@ Inductive AExp :=
   | amax: AExp -> AExp -> AExp
   | apow: AExp -> AExp
   | asqrt: AExp -> AExp
-  | strlenStr: StringOP ->AExp.
+  | strlenStr: errString ->AExp.
 
 
 
@@ -76,7 +92,8 @@ Inductive Stmt :=
   | ifthenelse : BExp -> Stmt -> Stmt -> Stmt
   | ifthen : BExp -> Stmt -> Stmt
   | SystemOut : StringOP -> Stmt
-  | break : Stmt.
+  | break : Stmt
+  | callFun : string -> list funParam -> Stmt.
 
 Inductive Result :=
   | err_undecl : Result
@@ -91,7 +108,7 @@ Inductive Result :=
 
 Inductive Glb :=
     | mainDecl : Stmt -> Glb
-    | functionDecl : string -> list string -> Stmt -> Glb
+    | functionDecl : string -> list funParam -> Stmt -> Glb
     | sequenceGlb : Glb -> Glb -> Glb
     | natGlb : string -> Glb
     | boolGlb : string -> Glb
@@ -104,6 +121,7 @@ Inductive Mem :=
   | offset : nat -> Mem. 
 
 Definition Env := string -> Mem.
+
 
 Coercion avar : string >-> AExp.
 Coercion bvar : string >-> BExp.
@@ -158,11 +176,19 @@ Notation "'If'( B ) 'then' { A }'End'" :=(ifthen B A)(at level 97).
 Notation "'If'( B ) 'then' { S1 }'Else'{ S2 }'End'" := (ifthenelse B S1 S2)(at level 97).
 Notation "'while(' B '){' A '}'" := (whileStmt B A)(at level 95).
 Notation "System.out.println( S )" := (SystemOut S)(at level 98).
-
+Notation "'fun' S ()" := (callFun S nil)(at level 85).
+Notation "'fun' S (( A1 , .. , An ))" := (callFun S (cons (param A1) .. (cons (param An) nil) .. ) ) (at level 85).
 
 Notation "'public_void' 'main()' { S }" := (mainDecl S)(at level 98).
 Notation "'public_void' N (){ S }" := (functionDecl N nil S)(at level 98).
 Notation "'public_void' N ( A ){ S }" := (functionDecl N A S)(at level 98).
+Notation "'public_void' N (( A1 , .. , An )){ S }" := (functionDecl N (cons (param A1) .. (cons (param An) nil) .. ) S)(at level 98).
+
+
+Check 
+  public_void "test" (("test1")){
+    System.out.println( "Asta este un test" )
+  }.
 
 Check
   public_void "test" (){
@@ -176,8 +202,10 @@ Check
      LNat "n";;
      "n" :n= 10;;
      System.out.println( "TestGlobal" );;
-     System.out.println( "x" )
+     System.out.println( "x" );;
+     fun "test" ()
   }.
+
 
 Reserved Notation "A =[ S ]=> N" (at level 60).
 Reserved Notation "B ={ S }=> B'" (at level 70).
