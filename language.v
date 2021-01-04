@@ -13,11 +13,17 @@ Require Setoid.
 Set Implicit Arguments.
 Require Import Coq.Lists.List.
 Open Scope list_scope.
+Require Import Notations Logic Datatypes.
+Require Decimal Hexadecimal Numeral.
+Local Open Scope nat_scope.
 
 
 Inductive ErrorNat :=
   | error_nat : ErrorNat
   | num : nat -> ErrorNat.
+
+
+Scheme Equality for ErrorNat.
 
 Inductive ErrorBool :=
   | error_bool : ErrorBool
@@ -244,13 +250,45 @@ Definition Env := string -> Mem.
 
 Definition Memory := nat -> Types.
 Definition State := ErrorNat -> nat.
-Inductive MemoryLayer := 
-| pair : State -> Memory -> nat -> State -> Memory -> nat -> MemoryLayer.
-Notation "<< S , M , N >>-<< GS , GM , GN >>" := (pair S M N GS GM GN) (at level 0).
+Inductive LayerMemory := 
+| pair : State -> Memory -> nat -> State -> Memory -> nat -> LayerMemory.
+Notation "< S , M , N >-< GS , GM , GN >" := (pair S M N GS GM GN) (at level 0).
+
+Definition localCheck (m : LayerMemory) (v : ErrorNat) : bool :=
+match m with
+| pair s m _ gs gm _ => if (eqType ( m (s v) ) error) 
+                              then false else true
+end.
+
+Definition getVal (m : LayerMemory) (v : ErrorNat) : Types :=
+match m with
+| pair s mem _ gs gm _ => if (localCheck m v) 
+                              then mem(s v) else gm(gs v)
+end.
+
+Definition getLocalMaxPos (m : LayerMemory) : nat :=
+match m with
+| pair _ _ val _ _ _  => val
+end.
+
+Definition getGlobalMaxPos (m : LayerMemory) : nat :=
+match m with
+| pair _ _ _ _ _ val  => val
+end.
+
+Definition getLocalAdress (m:LayerMemory) (v : ErrorNat) : nat :=
+match m with
+| pair s _ _ _ _ _ => s v
+end.
+
+Definition getGlobalAdress (m:LayerMemory) (v:ErrorNat) : nat :=
+match m with
+| pair _ _ _ s _ _ => s v
+end.
 
 
+Definition updateState (st : State) (v : ErrorNat) (n : nat) : State:= 
+fun x => if (ErrorNat_beq x v) then n else st x.
 
-
-
-
-
+Definition updateMemory (m : Memory) (n : nat) (val : Types) : Memory :=
+fun n' => if (eqb n' n) then val else m n'. 
