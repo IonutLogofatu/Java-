@@ -25,6 +25,7 @@ Inductive ErrorNat :=
 
 Scheme Equality for ErrorNat.
 
+
 Inductive ErrorBool :=
   | error_bool : ErrorBool
   | boolean : bool -> ErrorBool.
@@ -61,6 +62,12 @@ match s1, s2 with
    |_, error_String => error_bool
    |newString a, newString b => boolean (String.eqb a b)
  end.
+
+Definition strlen_fun (s : errString) : ErrorNat :=
+match s with 
+| error_String => error_nat
+| newString str1 => num (String.length str1)
+end.
 
 Inductive AExp :=
   | avar: string -> AExp 
@@ -292,3 +299,75 @@ fun x => if (ErrorNat_beq x v) then n else st x.
 
 Definition updateMemory (m : Memory) (n : nat) (val : Types) : Memory :=
 fun n' => if (eqb n' n) then val else m n'. 
+
+Definition Plus (a b : Types) :=
+match a, b with
+| numberType a', numberType b' => match a', b' with
+                        | num n1, num n2 => numberType (n1 + n2)
+                        | _, _ => numberType error_nat
+                        end
+| _ , _ => error
+end.
+
+Definition Minus (a b : Types) :=
+match a, b with
+| numberType a', numberType b' => match a', b' with
+                        | num n1, num n2 => if(leb n1 n2)then numberType error_nat else numberType (n1 - n2)
+                        | _, _ => numberType error_nat
+                        end
+| _ , _ => error
+end.
+
+Definition Multiplied (a b : Types) :=
+match a, b with
+| numberType a', numberType b' => match a', b' with
+                        | num n1, num n2 => numberType (n1 * n2)
+                        | _, _ => numberType error_nat
+                        end
+| _ , _ => error
+end.
+
+Definition Divide (a b : Types) :=
+match a, b with
+| numberType a', numberType b' => match a', b' with
+                        | num n1, num n2 =>if(eqb n2 0) then numberType error_nat else numberType (n1 * n2)
+                        | _, _ => numberType error_nat
+                        end
+| _ , _ => error
+end.
+
+Definition Mod (a b : Types) :=
+match a, b with
+| numberType a', numberType b' => match a', b' with
+                        | num n1, num n2 =>if(eqb n2 0) then numberType error_nat else numberType (modulo n1 n2)
+                        | _, _ => numberType error_nat
+                        end
+| _ , _ => error
+end.
+
+Definition Power (a b : Types) :=
+match a, b with
+| numberType a', numberType b' => match a', b' with
+                        | num n1, num n2 =>if(ltb n2 0) then numberType error_nat else numberType (pow n1 n2)
+                        | _, _ => numberType error_nat
+                        end
+| _ , _ => error
+end.
+
+Definition Strcat (s1 s2 : Types) := 
+match s1, s2 with
+| stringType s1', stringType s2' => stringType ( strConcat_fun s1' s2' )
+| _, _ => error
+end.
+
+Definition Strlen (a : Types) :=
+match a with
+| stringType a' => numberType ( strlen_fun a' )
+| _ => error
+end.
+
+
+
+
+
+
