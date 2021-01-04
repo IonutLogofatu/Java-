@@ -42,6 +42,20 @@ Inductive StringOP:=
   | strCmp : errString -> errString -> StringOP
   | strVar : string -> StringOP.
 
+Definition strConcat_fun (s1 s2: errString) : errString:=
+match s1, s2 with
+   |error_String, _ => error_String
+   |_, error_String => error_String
+   |newString a, newString b => newString (a ++ b)
+ end.
+
+Definition strCmp_fun (s1 s2: errString) : ErrorBool:=
+match s1, s2 with
+   |error_String, _ => error_bool
+   |_, error_String => error_bool
+   |newString a, newString b => boolean (String.eqb a b)
+ end.
+
 Inductive AExp :=
   | avar: string -> AExp 
   | anum: ErrorNat -> AExp
@@ -114,14 +128,22 @@ Inductive Glb :=
     | boolGlb : string -> Glb
     | stringGlb : string -> Glb.
 
+Inductive Types : Type :=
+ |error : Types
+ |numberType : ErrorNat -> Types
+ |booleanType : ErrorBool -> Types
+ |stringType : errString -> Types
+ |codeType : Stmt -> Types.
 
-
-Inductive Mem :=
-  | mem_default : Mem
-  | offset : nat -> Mem. 
-
-Definition Env := string -> Mem.
-
+Definition eqType (a b: Types) : bool :=
+match a,b with
+  |error, error => true
+  |numberType _, numberType _ => true
+  |booleanType _, booleanType _ =>true
+  |stringType _, stringType _ =>true
+  |codeType _, codeType _ =>true
+  | _, _ => false
+end.
 
 Coercion avar : string >-> AExp.
 Coercion bvar : string >-> BExp.
@@ -137,8 +159,8 @@ Notation "A -' B" := (asub A B)(at level 50, left associativity).
 Notation "A *' B" := (amul A B)(at level 48, left associativity).
 Notation "A /' B" := (adiv A B)(at level 48, left associativity).
 Notation "A %' B" := (amod A B)(at level 45, left associativity).
-Notation "++ C" := (ainc C)(at level 50, left associativity).
-Notation "-- C" := (adec C)(at level 50, left associativity).
+Notation "++' C" := (ainc C)(at level 50, left associativity).
+Notation "--' C" := (adec C)(at level 50, left associativity).
 Notation "min'( A , C )" := (amin A C)(at level 47, left associativity).
 Notation "max'( A , C )" := (amax A C)(at level 47, left associativity).
 Notation "pow'( A )" := (apow A)(at level 47, left associativity).
@@ -213,20 +235,18 @@ Reserved Notation "B ={ S }=> B'" (at level 70).
 Reserved Notation "S -{ Sigma }-> Sigma'" (at level 60).
 
 
+Inductive Mem :=
+  | mem_default : Mem
+  | offset : nat -> Mem. 
+
+Definition Env := string -> Mem.
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+Definition Memory := nat -> Types.
+Definition State := ErrorNat -> nat.
+Inductive MemoryLayer := 
+| pair : State -> Memory -> nat -> State -> Memory -> nat -> MemoryLayer.
+Notation "<< S , M , N >>-<< GS , GM , GN >>" := (pair S M N GS GM GN) (at level 0).
 
 
 
