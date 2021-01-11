@@ -36,7 +36,7 @@ Inductive errString :=
 
 Inductive funParam :=
   | param : string -> funParam.
-
+Scheme Equality for funParam.
 
 Coercion num: nat >-> ErrorNat.
 Coercion boolean: bool >-> ErrorBool.
@@ -45,8 +45,8 @@ Coercion param : string >-> funParam.
 
 Inductive StringOP:=
   | str_err : errString -> StringOP
-  | strConcat : errString -> errString -> StringOP
-  | strCmp : errString -> errString -> StringOP
+  | strConcat : StringOP -> StringOP -> StringOP
+  | strCmp : StringOP -> StringOP -> StringOP
   | strVar : string -> StringOP.
 
 Definition strConcat_fun (s1 s2: errString) : errString:=
@@ -81,9 +81,9 @@ Inductive AExp :=
   | adec: AExp -> AExp
   | amin: AExp -> AExp -> AExp
   | amax: AExp -> AExp -> AExp
-  | apow: AExp -> AExp
+  | apow: AExp -> AExp -> AExp
   | asqrt: AExp -> AExp
-  | strlenStr: errString ->AExp.
+  | strlenStr: StringOP ->AExp.
 
 
 
@@ -98,8 +98,8 @@ Inductive BExp :=
   | bnot : BExp -> BExp
   | band : BExp -> BExp -> BExp
   | bor : BExp -> BExp -> BExp
-  | bgreather: BExp -> BExp -> BExp
-  | begreather: BExp -> BExp -> BExp
+  | bgreather: AExp -> AExp -> BExp
+  | begreather: AExp -> AExp -> BExp
   | binneq : AExp -> AExp -> BExp
   | beq : AExp -> AExp -> BExp.
 
@@ -166,6 +166,7 @@ Coercion anum: ErrorNat >-> AExp.
 
 Notation "String.concat( A , B )" :=(strConcat A B)(at level 49, left associativity).
 Notation "Str.lenght( A )" :=(strlenStr A)(at level 47, left associativity).
+Notation "Str.cmp( A , B )" :=(strCmp A B)(at level 47, left associativity).
 
 Notation "A +' B" := (aplus A B)(at level 50, left associativity).
 Notation "A -' B" := (asub A B)(at level 50, left associativity).
@@ -176,19 +177,19 @@ Notation "++' C" := (ainc C)(at level 50, left associativity).
 Notation "--' C" := (adec C)(at level 50, left associativity).
 Notation "min'( A , C )" := (amin A C)(at level 47, left associativity).
 Notation "max'( A , C )" := (amax A C)(at level 47, left associativity).
-Notation "pow'( A )" := (apow A)(at level 47, left associativity).
-Notation "Math.sqrt( A )" :=(asqrt A)(at level 47, left associativity).  
+Notation "pow'( A , C )" := (apow A C)(at level 47, left associativity).
+Notation "sqrt( A )" :=(asqrt A)(at level 47, left associativity).  
 
 
-Notation "A <' B" := (blt A B) (at level 70).
-Notation "A >' B" := (bgreather A B) (at level 70).
+Notation "A <' B" := (blt A B) (at level 51, left associativity).
+Notation "A >' B" := (bgreather A B) (at level 51, left associativity).
 Notation "!' A" := (bnot A)(at level 51, left associativity).
 Notation "A &&' B" := (band A B)(at level 52, left associativity).
 Notation "A ||' B" := (bor A B)(at level 53, left associativity).
-Notation "A <=' B" := (belt A B)(at level 71, left associativity).
-Notation "A >=' B" := (begreather A B)(at level 71, left associativity).
-Notation "A !=' B" := (binneq A B)(at level 72, left associativity).
-Notation "A ==' B" := (beq A B)(at level 72, left associativity).
+Notation "A <=' B" := (belt A B)(at level 51, left associativity).
+Notation "A >=' B" := (begreather A B)(at level 51, left associativity).
+Notation "A !=' B" := (binneq A B)(at level 55, left associativity).
+Notation "A ==' B" := (beq A B)(at level 54, left associativity).
 
 
 Notation "X :n= A" := (nat_assign X A)(at level 90).
@@ -199,7 +200,7 @@ Notation "'GNat' X" := (natGlb X)(at level 90).
 Notation "'Nat' X ::= A" := (nat_decl X A)(at level 90).
 Notation "'LBoolean' X" :=(locBoolDecl X)(at level 90).
 Notation "'Gboolean' X" := (boolGlb X)(at level 90).
-Notation "'boolean' X ::= A" := (bool_decl X A)(at level 90).
+Notation "'Boolean' X ::= A" := (bool_decl X A)(at level 90).
 Notation "'LString' X" :=(locStringDecl X)(at level 90).
 Notation "'GSTring' X" :=(stringGlb X)(at level 90).
 Notation "'STring' X ::= A" := (string_decl X A)(at level 90).
@@ -256,18 +257,18 @@ Definition Env := string -> Mem.
 
 
 Definition Memory := nat -> Types.
-Definition State := ErrorNat -> nat.
+Definition State := funParam -> nat.
 Inductive LayerMemory := 
 | pair : State -> Memory -> nat -> State -> Memory -> nat -> LayerMemory.
 Notation "< S , M , N >-< GS , GM , GN >" := (pair S M N GS GM GN) (at level 0).
 
-Definition localCheck (m : LayerMemory) (v : ErrorNat) : bool :=
+Definition localCheck (m : LayerMemory) (v : funParam) : bool :=
 match m with
 | pair s m _ gs gm _ => if (eqType ( m (s v) ) error) 
                               then false else true
 end.
 
-Definition getVal (m : LayerMemory) (v : ErrorNat) : Types :=
+Definition getVal (m : LayerMemory) (v : funParam) : Types :=
 match m with
 | pair s mem _ gs gm _ => if (localCheck m v) 
                               then mem(s v) else gm(gs v)
@@ -283,19 +284,19 @@ match m with
 | pair _ _ _ _ _ val  => val
 end.
 
-Definition getLocalAdress (m:LayerMemory) (v : ErrorNat) : nat :=
+Definition getLocalAdress (m:LayerMemory) (v : funParam) : nat :=
 match m with
 | pair s _ _ _ _ _ => s v
 end.
 
-Definition getGlobalAdress (m:LayerMemory) (v:ErrorNat) : nat :=
+Definition getGlobalAdress (m:LayerMemory) (v:funParam) : nat :=
 match m with
 | pair _ _ _ s _ _ => s v
 end.
 
 
-Definition updateState (st : State) (v : ErrorNat) (n : nat) : State:= 
-fun x => if (ErrorNat_beq x v) then n else st x.
+Definition updateState (st : State) (v : funParam) (n : nat) : State:= 
+fun x => if (funParam_beq x v) then n else st x.
 
 Definition updateMemory (m : Memory) (n : nat) (val : Types) : Memory :=
 fun n' => if (eqb n' n) then val else m n'. 
@@ -316,6 +317,15 @@ match a, b with
                         | _, _ => numberType error_nat
                         end
 | _ , _ => error
+end.
+
+Definition Sqrt (a : Types) :=
+match a with
+| numberType a' => match a' with
+                        | num n1 => if(eqb n1 0)then numberType error_nat else numberType (sqrt n1)
+                        | _ => numberType error_nat
+                        end
+| _ => error
 end.
 
 Definition Multiplied (a b : Types) :=
@@ -360,14 +370,162 @@ match s1, s2 with
 | _, _ => error
 end.
 
+Definition Strcmp (s1 s2 : Types) := 
+match s1, s2 with
+| stringType s1', stringType s2' => match s1', s2' with
+                        |newString n1, newString n2 =>if(String.eqb n1 n2 ) then booleanType true else booleanType false
+                        |_,_ =>booleanType false
+                        end
+| _, _ =>booleanType false
+end.
+
+
 Definition Strlen (a : Types) :=
 match a with
 | stringType a' => numberType ( strlen_fun a' )
 | _ => error
 end.
 
+Definition Comp (type : string) (a b : Types) : Types := 
+match a, b with
+| numberType a', numberType b' 
+          => match a', b' with
+          | num  a'', num  b'' 
+                        => match type with
+                           | "lt" => booleanType (ltb a'' b'')
+                           | "le" => booleanType (leb a'' b'')
+                           | "gt" => booleanType (ltb b'' a'')
+                           | "ge" => booleanType (leb b'' a'')
+                           | "eq" => booleanType (eqb a'' b'')
+                           | _ => booleanType (eqb a'' b'')
+                           end
+          | _, _ => booleanType error_bool 
+          end
+| _, _ => error
+end.
+
+Definition newOrB (a b : Types) : Types := 
+match a, b with
+| booleanType a', booleanType b' => match a', b' with
+                              | boolean a'', boolean b'' => booleanType (orb a'' b'')
+                              | _, _ => booleanType error_bool
+                              end
+| _, _ => error
+end.
+
+Reserved Notation "STR '=S[' St ']S>' N" (at level 60).
+Inductive seval : StringOP -> LayerMemory -> Types -> Prop :=
+| s_var : forall s sigma, strVar s =S[ sigma ]S> getVal sigma s
+| s_concat : forall s1 s2 sigma s st1 st2,
+    s1 =S[ sigma ]S> st1 ->
+    s2 =S[ sigma ]S> st2 ->
+    s = Strcat st1 st2 ->
+    String.concat( s1 , s2 ) =S[ sigma ]S> s
+| s_cmp : forall s1 s2  sigma b st1 st2,
+    s1 =S[ sigma ]S> st1 ->
+    s2 =S[ sigma ]S> st2 ->
+    b = Strcmp st1 st2 ->
+    Str.cmp( s1 , s2 ) =S[ sigma ]S> b
+where "STR '=S[' St ']S>' N" := (seval STR St N).
 
 
 
+Reserved Notation "B '=B[' S ']B>' B'" (at level 70).
+Reserved Notation "A '=A[' S ']A>' N" (at level 60).
+
+Inductive aeval : AExp -> LayerMemory -> Types -> Prop :=
+| e_var : forall v sigma, avar v =A[ sigma ]A> getVal sigma v
+| e_add : forall a1 a2 i1 i2 sigma n,
+    a1 =A[ sigma ]A> i1 ->
+    a2 =A[ sigma ]A> i2 ->
+    n = Plus i1 i2 ->
+    a1 +' a2 =A[ sigma ]A> n
+| e_sub : forall a1 a2 i1 i2 sigma n,
+    a1 =A[ sigma ]A> i1 ->
+    a2 =A[ sigma ]A> i2 ->
+    n = Minus i1 i2 ->
+    a1 -' a2 =A[ sigma ]A> n
+| e_times : forall a1 a2 i1 i2 sigma n,
+    a1 =A[ sigma ]A> i1 ->
+    a2 =A[ sigma ]A> i2 ->
+    n = Multiplied  i1 i2 ->
+    a1 *' a2 =A[ sigma ]A> n
+| e_divided : forall a1 a2 i1 i2 sigma n,
+    a1 =A[ sigma ]A> i1 ->
+    a2 =A[ sigma ]A> i2 ->
+    n = Divide  i1 i2 ->
+    a1 /' a2 =A[ sigma ]A> n
+| e_div_rest : forall a1 a2 i1 i2 sigma n,
+    a1 =A[ sigma ]A> i1 ->
+    a2 =A[ sigma ]A> i2 ->
+    n = Mod i1 i2 ->
+    a1 %' a2 =A[ sigma ]A> n
+| e_power : forall a1 a2 i1 i2 sigma n,
+    a1 =A[ sigma ]A> i1 ->
+    a2 =A[ sigma ]A> i2 ->
+    n = Power i1 i2 ->
+    pow'( a1 , a2) =A[ sigma ]A> n
+| e_sqrt :forall a1 sigma s1 n,
+    a1 =A[ sigma ]A> s1 ->
+    n = Sqrt s1 ->
+    sqrt( a1 ) =A[ sigma ]A> n
+| e_strlen : forall a1 sigma s1 n,
+    a1 =S[ sigma ]S> s1 ->
+    n = Strlen s1 ->
+    Str.lenght( a1 ) =A[ sigma ]A> n
+where "A '=A[' S ']A>' N" := (aeval A S N)
+with beval : BExp -> LayerMemory -> Types -> Prop :=
+| e_true : forall sigma, btrue =B[ sigma ]B> booleanType  true
+| e_false : forall sigma, bfalse =B[ sigma ]B> booleanType  false
+| e_bvar : forall v sigma, bvar v =B[ sigma ]B> getVal sigma v
+| e_lessthan : forall a1 a2 i1 i2 sigma b,
+    a1 =A[ sigma ]A> i1 ->
+    a2 =A[ sigma ]A> i2 ->
+    b = Comp "lt" i1 i2 ->
+    a1 <' a2 =B[ sigma ]B> b
+| e_lessthan_eq : forall a1 a2 i1 i2 sigma b,
+    a1 =A[ sigma ]A> i1 ->
+    a2 =A[ sigma ]A> i2 ->
+    b = Comp "le" i1 i2 ->
+    a1 <=' a2 =B[ sigma ]B> b
+| e_greaterthan : forall a1 a2 i1 i2 sigma b,
+    a1 =A[ sigma ]A> i1 ->
+    a2 =A[ sigma ]A> i2 ->
+    b = Comp "gt" i1 i2 ->
+    a1 >' a2 =B[ sigma ]B> b
+| e_greaterthan_eq : forall a1 a2 i1 i2 sigma b,
+    a1 =A[ sigma ]A> i1 ->
+    a2 =A[ sigma ]A> i2 ->
+    b = Comp "ge" i1 i2 ->
+    a1 >=' a2 =B[ sigma ]B> b
+| e_nottrue : forall b sigma,
+    b =B[ sigma ]B> booleanType true ->
+    (!' b) =B[ sigma ]B> booleanType false
+| e_notfalse : forall b sigma,
+    b =B[ sigma ]B> booleanType false ->
+    (!' b) =B[ sigma ]B> booleanType true
+| e_andtrue : forall b1 b2 sigma t,
+    b1 =B[ sigma ]B> booleanType true ->
+    b2 =B[ sigma ]B> t ->
+    b1 &&' b2 =B[ sigma ]B> t
+| e_andfalse : forall b1 b2 sigma,
+    b1 =B[ sigma ]B>booleanType false ->
+    b1 &&' b2 =B[ sigma ]B> booleanType false
+| e_or : forall b1 b2 sigma t t1 t2,
+    b1 =B[ sigma ]B> t1 ->
+    b2 =B[ sigma ]B> t2 ->
+    t = newOrB t1 t2 ->
+    b1 ||' b2 =B[ sigma ]B> t
+| e_equality : forall a1 a2 i1 i2 sigma b,
+    a1 =A[ sigma ]A> i1 ->
+    a2 =A[ sigma ]A> i2 ->
+    b = Comp "eq" i1 i2 ->
+    a1 ==' a2 =B[ sigma ]B> b
+| e_inequality : forall a1 a2 i1 i2 sigma b,
+    a1 =A[ sigma ]A> i1 ->
+    a2 =A[ sigma ]A> i2 ->
+    b = Comp "ineq" i1 i2 ->
+    a1 !=' a2 =B[ sigma ]B> b
+where "B '=B[' S ']B>' B'" := (beval B S B').
 
 
