@@ -390,14 +390,14 @@ Definition Comp (type : string) (a b : Types) : Types :=
 match a, b with
 | numberType a', numberType b' 
           => match a', b' with
-          | num  a'', num  b'' 
+          | num  m, num  n
                         => match type with
-                           | "lt" => booleanType (ltb a'' b'')
-                           | "le" => booleanType (leb a'' b'')
-                           | "gt" => booleanType (ltb b'' a'')
-                           | "ge" => booleanType (leb b'' a'')
-                           | "eq" => booleanType (eqb a'' b'')
-                           | _ => booleanType (eqb a'' b'')
+                           | "lessthan" => booleanType (ltb m n)
+                           | "lessequal" => booleanType (leb m n)
+                           | "greatherthan" => booleanType (ltb n n)
+                           | "greatherequal" => booleanType (leb n n)
+                           | "equal" => booleanType (eqb m n)
+                           | _ => booleanType (eqb m n)
                            end
           | _, _ => booleanType error_bool 
           end
@@ -407,7 +407,7 @@ end.
 Definition newOrB (a b : Types) : Types := 
 match a, b with
 | booleanType a', booleanType b' => match a', b' with
-                              | boolean a'', boolean b'' => booleanType (orb a'' b'')
+                              | boolean m, boolean n => booleanType (orb m n)
                               | _, _ => booleanType error_bool
                               end
 | _, _ => error
@@ -481,22 +481,22 @@ with beval : BExp -> LayerMemory -> Types -> Prop :=
 | e_lessthan : forall a1 a2 i1 i2 sigma b,
     a1 =A[ sigma ]A> i1 ->
     a2 =A[ sigma ]A> i2 ->
-    b = Comp "lt" i1 i2 ->
+    b = Comp "lessthan" i1 i2 ->
     a1 <' a2 =B[ sigma ]B> b
 | e_lessthan_eq : forall a1 a2 i1 i2 sigma b,
     a1 =A[ sigma ]A> i1 ->
     a2 =A[ sigma ]A> i2 ->
-    b = Comp "le" i1 i2 ->
+    b = Comp "lessequal" i1 i2 ->
     a1 <=' a2 =B[ sigma ]B> b
 | e_greaterthan : forall a1 a2 i1 i2 sigma b,
     a1 =A[ sigma ]A> i1 ->
     a2 =A[ sigma ]A> i2 ->
-    b = Comp "gt" i1 i2 ->
+    b = Comp "greatherthan" i1 i2 ->
     a1 >' a2 =B[ sigma ]B> b
 | e_greaterthan_eq : forall a1 a2 i1 i2 sigma b,
     a1 =A[ sigma ]A> i1 ->
     a2 =A[ sigma ]A> i2 ->
-    b = Comp "ge" i1 i2 ->
+    b = Comp "greatherequal" i1 i2 ->
     a1 >=' a2 =B[ sigma ]B> b
 | e_nottrue : forall b sigma,
     b =B[ sigma ]B> booleanType true ->
@@ -519,13 +519,17 @@ with beval : BExp -> LayerMemory -> Types -> Prop :=
 | e_equality : forall a1 a2 i1 i2 sigma b,
     a1 =A[ sigma ]A> i1 ->
     a2 =A[ sigma ]A> i2 ->
-    b = Comp "eq" i1 i2 ->
+    b = Comp "equal" i1 i2 ->
     a1 ==' a2 =B[ sigma ]B> b
 | e_inequality : forall a1 a2 i1 i2 sigma b,
     a1 =A[ sigma ]A> i1 ->
     a2 =A[ sigma ]A> i2 ->
-    b = Comp "ineq" i1 i2 ->
+    b = Comp "inequal" i1 i2 ->
     a1 !=' a2 =B[ sigma ]B> b
 where "B '=B[' S ']B>' B'" := (beval B S B').
 
-
+Definition getStmt (code : Types) : Stmt :=
+match code with
+| codeType stmt => stmt
+| _ => break
+end.
