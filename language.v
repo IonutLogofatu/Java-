@@ -697,11 +697,9 @@ Inductive glb_eval : Glb -> LayerMemory -> LayerMemory -> Prop :=
   ( functionDecl s L stmt )-{ sigma }=> sigma1
 where "G -{ M1 }=> M2" := (glb_eval G M1 M2).
 
-Example ex1 : exists stack', ( Boolean "x" ::= bfalse ;; "x" :b= btrue )-[ stack_null , stack_null ]=> stack' , stack_null
-    /\ getVal stack' "x" = booleanType true.
+Example ex1 : exists stack', ( Boolean "x" ::= bfalse ;; "x" :b= btrue )-[ stack_null , stack_null ]=> stack' , stack_null.
 Proof.
   eexists. 
-  split.
   *eapply st_secv.
   +eapply st_bool.
   -eapply e_false.
@@ -710,7 +708,6 @@ Proof.
   -simpl. trivial. 
   -eapply e_true.
   -unfold updateAtAdress. simpl. trivial.
-  *simpl. unfold updateMemory. simpl. trivial.
 Qed.
 
 Definition testFunct :=
