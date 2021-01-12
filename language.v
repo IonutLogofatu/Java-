@@ -70,6 +70,7 @@ match s with
 end.
 
 Inductive AExp :=
+  | aconst : ErrorNat -> AExp 
   | avar: string -> AExp 
   | anum: ErrorNat -> AExp
   | aplus: AExp -> AExp -> AExp
@@ -105,22 +106,22 @@ Inductive BExp :=
 
 
 Inductive Stmt :=
-  | nat_decl: string -> AExp -> Stmt 
-  | locNatDecl : string -> Stmt
-  | bool_decl: string -> BExp -> Stmt
-  | locBoolDecl : string -> Stmt 
-  | string_decl: string -> StringOP -> Stmt
-  | locStringDecl : string -> Stmt
-  | nat_assign : string -> AExp -> Stmt 
-  | bool_assign : string -> BExp -> Stmt 
-  | string_assign : string -> StringOP -> Stmt
+  | nat_decl: funParam -> AExp -> Stmt 
+  | locNatDecl : funParam -> Stmt
+  | bool_decl: funParam -> BExp -> Stmt
+  | locBoolDecl : funParam -> Stmt 
+  | string_decl: funParam -> StringOP -> Stmt
+  | locStringDecl : funParam -> Stmt
+  | nat_assign : funParam -> AExp -> Stmt 
+  | bool_assign : funParam -> BExp -> Stmt 
+  | string_assign : funParam -> StringOP -> Stmt
   | sequence : Stmt -> Stmt -> Stmt
   | whileStmt : BExp -> Stmt -> Stmt
   | ifthenelse : BExp -> Stmt -> Stmt -> Stmt
   | ifthen : BExp -> Stmt -> Stmt
   | SystemOut : StringOP -> Stmt
   | break : Stmt
-  | callFun : string -> list funParam -> Stmt.
+  | callFun : funParam -> list funParam -> Stmt.
 
 Inductive Result :=
   | err_undecl : Result
@@ -131,22 +132,22 @@ Inductive Result :=
   | res_string : StringOP -> Result
   | code : Stmt -> Result. 
 
-
+Coercion aconst : ErrorNat >-> AExp.
 
 Inductive Glb :=
     | mainDecl : Stmt -> Glb
-    | functionDecl : string -> list funParam -> Stmt -> Glb
+    | functionDecl : funParam -> list funParam -> Stmt -> Glb
     | sequenceGlb : Glb -> Glb -> Glb
-    | natGlb : string -> Glb
-    | boolGlb : string -> Glb
-    | stringGlb : string -> Glb.
+    | natGlb : funParam -> Glb
+    | boolGlb : funParam -> Glb
+    | stringGlb : funParam -> Glb.
 
 Inductive Types : Type :=
  |error : Types
  |numberType : ErrorNat -> Types
  |booleanType : ErrorBool -> Types
  |stringType : errString -> Types
- |codeType : Stmt -> Types.
+ |codeType : list funParam ->Stmt -> Types.
 
 Definition eqType (a b: Types) : bool :=
 match a,b with
@@ -154,7 +155,7 @@ match a,b with
   |numberType _, numberType _ => true
   |booleanType _, booleanType _ =>true
   |stringType _, stringType _ =>true
-  |codeType _, codeType _ =>true
+  |codeType _ _, codeType _ _ =>true
   | _, _ => false
 end.
 
@@ -208,8 +209,8 @@ Notation "S1 ;; S2" := (sequence S1 S2) (at level 93, right associativity).
 Notation "S1 .' S2" := (sequenceGlb S1 S2)(at level 93, right associativity).
 
 Notation "'fors' ( A ;' B ;' C ) { S }" := (A ;; whileStmt B ( S ;; C )) (at level 97).
-Notation "'If'( B ) 'then' { A }'End'" :=(ifthen B A)(at level 97).
-Notation "'If'( B ) 'then' { S1 }'Else'{ S2 }'End'" := (ifthenelse B S1 S2)(at level 97).
+Notation "'If' B 'Then' A 'End'" :=(ifthen B A)(at level 97).
+Notation "'If' B 'Then' S1 'Else' S2 'End'" := (ifthenelse B S1 S2) (at level 97).
 Notation "'while(' B '){' A '}'" := (whileStmt B A)(at level 95).
 Notation "System.out.println( S )" := (SystemOut S)(at level 98).
 Notation "'fun' S ()" := (callFun S nil)(at level 85).
@@ -289,17 +290,61 @@ match m with
 | pair s _ _ _ _ _ => s v
 end.
 
+Definition getAdress (m:LayerMemory) (v:funParam) : nat :=
+match m with
+| pair st _ _ gst _ _ => if (eqb (st v) 0%nat) then gst v else st v
+end.
+
 Definition getGlobalAdress (m:LayerMemory) (v:funParam) : nat :=
 match m with
 | pair _ _ _ s _ _ => s v
 end.
-
-
 Definition updateState (st : State) (v : funParam) (n : nat) : State:= 
 fun x => if (funParam_beq x v) then n else st x.
 
 Definition updateMemory (m : Memory) (n : nat) (val : Types) : Memory :=
 fun n' => if (eqb n' n) then val else m n'. 
+
+Definition updateLocal (M : LayerMemory) (V : funParam) (T : Types) (pos : nat) : LayerMemory :=
+match M with
+| pair st mem max gst gmem gmax => if (andb (eqb pos (getLocalAdress M V) ) (eqb pos 0) ) then
+       pair st mem max gst gmem gmax else
+       pair (updateState st V pos) (updateMemory mem pos T) 
+      (if (ltb pos max) then max else add max 1) gst gmem gmax
+end.
+
+Definition updateGlobal (M : LayerMemory) (V : funParam) (T : Types) (pos : nat) : LayerMemory :=
+match M with
+| pair st mem max gst gmem gmax => if (andb (eqb pos (getGlobalAdress M V) ) (eqb pos 0) ) then
+       pair st mem max gst gmem gmax else
+       pair st mem max (updateState gst V pos) (updateMemory gmem pos T) 
+      (if (ltb pos gmax) then gmax else add gmax 1)
+end.
+
+Definition updateLocalAtAdress (M : LayerMemory) (addr : nat) (T : Types): LayerMemory :=
+match M with
+| pair st mem max gst gmem gmax => if (eqb addr 0) then
+       pair st mem max gst gmem gmax else
+       pair st (updateMemory mem addr T) max gst gmem gmax
+end.
+
+Definition updateGlobalAtAdress (M : LayerMemory) (addr : nat) (T : Types): LayerMemory :=
+match M with
+| pair st mem max gst gmem gmax => if (eqb addr 0) then
+       pair st mem max gst gmem gmax else
+       pair st mem max gst (updateMemory gmem addr T) gmax
+end.
+
+Definition updateAtAdress (M : LayerMemory) (isL : bool) (addr : nat) (T : Types) : LayerMemory :=
+match M with
+| pair st mem max gst gmem gmax => if isL
+                                         then updateLocalAtAdress M addr T
+                                         else updateGlobalAtAdress M addr T
+end.
+
+Definition mem_null : Memory := fun n => error.
+Definition state_null : State := fun x => 0.
+Definition stack_null := pair state_null mem_null 1 state_null mem_null 1.
 
 Definition Plus (a b : Types) :=
 match a, b with
@@ -434,6 +479,7 @@ Reserved Notation "B '=B[' S ']B>' B'" (at level 70).
 Reserved Notation "A '=A[' S ']A>' N" (at level 60).
 
 Inductive aeval : AExp -> LayerMemory -> Types -> Prop :=
+| e_const : forall n sigma, aconst n =A[ sigma ]A> numberType n
 | e_var : forall v sigma, avar v =A[ sigma ]A> getVal sigma v
 | e_add : forall a1 a2 i1 i2 sigma n,
     a1 =A[ sigma ]A> i1 ->
@@ -530,6 +576,171 @@ where "B '=B[' S ']B>' B'" := (beval B S B').
 
 Definition getStmt (code : Types) : Stmt :=
 match code with
-| codeType stmt => stmt
+| codeType _ stmt  => stmt
 | _ => break
 end.
+
+Definition getArgs (cod : Types) : list funParam :=
+match cod with
+| codeType args _ => args
+| _ => nil
+end.
+
+Definition MergeMemory (l g: LayerMemory) : LayerMemory :=
+match l, g with
+| pair st1 mem1 max1 gst1 gmem1 gmax1 ,
+    pair st2 mem2 max2 gst2 gmem2 gmax2 => pair st1 mem1 max1 gst2 gmem2 gmax2
+end.
+
+Definition DeleteLocal (m:LayerMemory ) : LayerMemory :=
+match m with 
+| pair st mem max gst gmem gmax => pair state_null mem_null 1 gst gmem gmax
+end.
+
+Fixpoint NewLocalStack (l1 l2 : list funParam) (m save:LayerMemory): LayerMemory :=
+match l1, l2 with
+| nil , nil => save
+| x :: nil, y :: nil => updateLocal save y (getVal m x) (getLocalMaxPos save)
+| x :: l1', y :: l2' => NewLocalStack l1' l2' m (updateLocal save y (getVal m x) (getLocalMaxPos save) )
+| _, _ => DeleteLocal m
+end.
+
+Reserved Notation " S -[ M1 , S1 ]=> M2 , S2" (at level 60).
+Inductive stmt_eval : Stmt -> LayerMemory -> LayerMemory -> LayerMemory -> LayerMemory -> Prop :=
+| st_secv : forall s1 s2 sigma sigma1 sigma2 save save',
+   ( s1 )-[ sigma , save ]=> sigma1 , save ->
+   ( s2 )-[ sigma1 , save ]=> sigma2 , save' ->
+   ( s1 ;; s2 )-[ sigma , save ]=> sigma2 , save'
+| st_natDecl : forall s a val sigma sigma1 save,
+    val =A[ sigma ]A> a ->
+    sigma1 = updateLocal sigma s a (getLocalMaxPos sigma) ->
+    ( Nat s ::= val )-[ sigma , save ]=> sigma1 , save
+| st_bool : forall s b val sigma sigma1 save,
+    val =B[ sigma ]B> b ->
+    sigma1 = updateLocal sigma s b (getLocalMaxPos sigma) ->
+    ( Boolean s ::= val)-[ sigma , save ]=> sigma1 , save
+| st_string : forall s val sigma sigma1 str save,
+    val =S[ sigma ]S> str ->
+    sigma1 = updateLocal sigma s str (getLocalMaxPos sigma) ->
+    ( STring s ::= val )-[ sigma , save ]=> sigma1 , save
+| st_asignat : forall s a val sigma sigma1 save,
+    eqType  (getVal sigma s) (numberType  0) = true ->
+    val =A[ sigma ]A> a ->
+    sigma1 = updateAtAdress sigma (localCheck sigma s) (getAdress sigma s) a ->
+    ( s :n= val )-[ sigma , save ]=> sigma1 , save
+| st_asignboolean : forall s b val sigma sigma1 save,
+    eqType  (getVal sigma s) (booleanType  false) = true ->
+    val =B[ sigma ]B> b ->
+    sigma1 = updateAtAdress sigma (localCheck sigma s) (getAdress sigma s) b ->
+    ( s :b= val )-[ sigma , save ]=> sigma1 , save
+| st_asigString : forall s val sigma sigma1 str save,
+    eqType  (getVal sigma s) (stringType "" ) = true ->
+    val =S[ sigma ]S> str ->
+    sigma1 = updateAtAdress sigma (localCheck sigma s) (getAdress sigma s) str  ->
+    ( s :s= val )-[ sigma , save ]=> sigma1 , save
+| st_iffalse : forall b s1 sigma save,
+    b =B[ sigma ]B> booleanType false ->
+    ( ifthen b s1 )-[ sigma , save ]=> sigma , save
+| st_iftrue : forall b s1 sigma sigma1 save,
+    b =B[ sigma ]B> booleanType true ->
+    ( s1 )-[ sigma , save ]=> sigma1 , save ->
+    ( ifthen b s1 )-[ sigma , save ]=> sigma1 , save
+| st_ifthenElseFalse : forall b s1 s2 sigma sigma2 save,
+    b =B[ sigma ]B> booleanType false ->
+    ( s2 )-[ sigma , save ]=> sigma2 , save ->
+    ( ifthenelse b s1 s2 )-[ sigma , save ]=> sigma2 , save
+| st_ifthenElseTrue : forall b s1 s2 sigma sigma1 save,
+    b =B[ sigma ]B> booleanType true ->
+    ( s1 )-[ sigma , save ]=> sigma1 , save ->
+    ( ifthenelse b s1 s2 )-[ sigma , save ]=> sigma1 , save
+| st_whilefalse : forall b s sigma save,
+    b =B[ sigma ]B> booleanType false ->
+    ( whileStmt b s )-[ sigma , save ]=> sigma , save
+| st_whiletrue : forall b s sigma sigma1 save,
+    b =B[ sigma ]B> booleanType true ->
+    ( s ;; whileStmt b s )-[ sigma , save ]=> sigma1 , save ->
+    ( whileStmt b s )-[ sigma , save]=> sigma1 , save
+| st_break : forall sigma sigma' save save',
+    save' = stack_null ->
+    sigma' = MergeMemory save sigma->
+    ( break )-[sigma, save]=> sigma', save'
+| st_callFun : forall s L args stmt sigma sigma' sigma1 save,
+    args = getArgs (getVal sigma s ) ->
+    length L = length args ->
+    sigma' = NewLocalStack L args sigma (DeleteLocal sigma)->
+    stmt = getStmt (getVal sigma s ) ->
+    ( stmt )-[ sigma' , sigma]=> sigma1 , save ->
+    ( callFun s L )-[ sigma , save ]=> sigma1 , save
+where "S -[ M1 , S1 ]=> M2 , S2" := (stmt_eval S M1 S1 M2 S2).
+
+Reserved Notation "G -{ M1 }=> M2" (at level 60).
+Inductive glb_eval : Glb -> LayerMemory -> LayerMemory -> Prop :=
+| glb_secv : forall s1 s2 sigma sigma1 sigma2,
+   ( s1 )-{ sigma }=> sigma1 ->
+   ( s2 )-{ sigma1 }=> sigma2 ->
+   ( s1 .' s2 )-{ sigma }=> sigma2
+| glb_nat : forall s sigma sigma1,
+  sigma1 = updateGlobal sigma s (numberType 0) (getGlobalMaxPos sigma) ->
+  ( GNat s )-{ sigma }=> sigma1
+| glb_bool : forall s sigma sigma1,
+  sigma1 = updateGlobal sigma s (booleanType false) (getGlobalMaxPos sigma) ->
+  ( Gboolean s )-{ sigma }=> sigma1
+| glb_string : forall s sigma sigma1,
+  sigma1 = updateGlobal sigma s (stringType "" ) (getGlobalMaxPos sigma) ->
+  ( GSTring s )-{ sigma }=> sigma1
+| glb_funMain : forall stmt sigma sigma1 save,
+  save = stack_null ->
+  ( stmt )-[ sigma , save ]=> sigma1 , save->
+  ( mainDecl  stmt )-{ sigma }=> sigma1
+| glb_function : forall s L  stmt sigma sigma1,
+  sigma1 = updateGlobal sigma s (codeType L stmt) (getGlobalMaxPos sigma) ->
+  ( functionDecl s L stmt )-{ sigma }=> sigma1
+where "G -{ M1 }=> M2" := (glb_eval G M1 M2).
+
+Example ex1 : exists stack', ( Boolean "x" ::= bfalse ;; "x" :b= btrue )-[ stack_null , stack_null ]=> stack' , stack_null
+    /\ getVal stack' "x" = booleanType true.
+Proof.
+  eexists. 
+  split.
+  *eapply st_secv.
+  +eapply st_bool.
+  -eapply e_false.
+  -unfold updateLocal. simpl. trivial.
+  +eapply st_asignboolean.
+  -simpl. trivial. 
+  -eapply e_true.
+  -unfold updateAtAdress. simpl. trivial.
+  *simpl. unfold updateMemory. simpl. trivial.
+Qed.
+
+Definition testFunct :=
+   GNat "x" .' 
+   public_void "test" (("m")){
+    "x" :n= "m" -' 20;;
+    break
+  }.'
+  public_void main(){
+     "x" :n= 45 ;;
+     fun "test" (("x"));;
+     break
+  }.
+
+Example ex2: exists stack', ( testFunct )-{ stack_null }=> stack'.
+Proof.
+   eexists.  
+  -unfold testFunct. eapply glb_secv.
+    + eapply glb_nat. unfold updateGlobal. simpl. trivial.
+    + eapply glb_secv.
+      ++ eapply glb_function. unfold updateGlobal. simpl. trivial.
+      ++ eapply glb_funMain. trivial.
+        ** eapply st_secv.
+          ***eapply st_asignat. simpl. trivial. 
+            eapply e_const. unfold updateAtAdress. simpl. trivial.
+          *** eapply st_secv.
+          ****eapply st_callFun; simpl; trivial.
+             eapply st_secv.
+             --eapply st_asignat; eauto.
+              eapply e_sub. eapply e_var. eapply e_const. eauto.
+            --eapply st_break; eauto.
+          ****eapply st_break; eauto.
+Qed.
